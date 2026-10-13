@@ -1,0 +1,15 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Local data
+data/private/
+
+

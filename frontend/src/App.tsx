@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import "./App.css";
+import ImageTools from "./ImageTools";
 
 function App() {
   const [status, setStatus] = useState("Not connected");
@@ -47,6 +48,7 @@ function App() {
         <h2>Form guide</h2>
         <p>Understand application instructions with AI assistance.</p>
       </section>
+      <ImageTools />
 
       <button onClick={checkBackend}>
         Test backend connection

@@ -81,3 +81,75 @@ def process_image(
 
     except (Image.UnidentifiedImageError, OSError, SyntaxError) as exc:
         raise ValueError("The uploaded file is not a valid supported image.") from exc
+
+def process_image_to_target_size(
+    image_bytes: bytes,
+    output_format: str = "JPEG",
+    quality: int = 75,
+    target_size_bytes: int = 100 * 1024,
+) -> tuple[bytes, bool, int]:
+    """Compress an image toward a target size using binary search.
+
+    Returns:
+        Processed image bytes, whether the target was met,
+        and the quality setting used.
+    """
+
+    if target_size_bytes <= 0:
+        raise ValueError("Target size must be greater than zero.")
+
+    if not 1 <= quality <= 95:
+        raise ValueError("Quality must be between 1 and 95.")
+
+    output_format = output_format.upper()
+
+    # Try the requested quality first.
+    best_result = process_image(
+        image_bytes,
+        output_format,
+        quality,
+    )
+    best_quality = quality
+
+    # Target already achieved.
+    if len(best_result) <= target_size_bytes:
+        return best_result, True, best_quality
+
+    # PNG output does not use the quality setting.
+    if output_format == "PNG":
+        return best_result, False, best_quality
+
+    # Check the lowest permitted quality.
+    smallest_result = process_image(
+        image_bytes,
+        output_format,
+        1,
+    )
+
+    if len(smallest_result) > target_size_bytes:
+        return smallest_result, False, 1
+
+    # Binary search for the highest quality that meets the target.
+    low = 1
+    high = quality - 1
+
+    best_result = smallest_result
+    best_quality = 1
+
+    while low <= high:
+        mid = (low + high) // 2
+
+        candidate = process_image(
+            image_bytes,
+            output_format,
+            mid,
+        )
+
+        if len(candidate) <= target_size_bytes:
+            best_result = candidate
+            best_quality = mid
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    return best_result, True, best_quality

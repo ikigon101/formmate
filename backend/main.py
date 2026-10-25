@@ -13,6 +13,12 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
+     expose_headers=[
+        "X-Target-Met",
+        "X-Actual-Quality",
+        "X-Original-Size",
+        "X-Processed-Size",
+    ],
 )
 
 app.include_router(image_router)

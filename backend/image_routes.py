@@ -1,10 +1,11 @@
 
+
 from io import BytesIO
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
-from image_tools import process_image
+from image_tools import process_image , process_image_to_target_size
 
 
 router = APIRouter(prefix="/image-tools", tags=["Image Tools"])
@@ -19,6 +20,7 @@ async def convert_image(
     file: UploadFile = File(...),
     output_format: str = Query(default="JPEG"),
     quality: int = Query(default=75, ge=1, le=95),
+    target_size_kb: int | None = Query(default=None, ge=1, le=10240),
 ):
     output_format = output_format.upper()
 
@@ -52,7 +54,17 @@ async def convert_image(
                 detail="Upload a valid JPEG, PNG, or WEBP image.",
             )
 
-        result = process_image(data, output_format, quality)
+        if target_size_kb is not None:
+            result, target_met, actual_quality = process_image_to_target_size(
+                data,
+                output_format,
+                quality,
+                target_size_kb * 1024,
+            )
+        else:
+            result = process_image(data, output_format, quality)
+            target_met = None
+            actual_quality = quality
 
     except HTTPException:
         raise
@@ -80,5 +92,11 @@ async def convert_image(
             ),
             "X-Original-Size": str(len(data)),
             "X-Processed-Size": str(len(result)),
+            "X-Target-Met": (
+                str(target_met).lower()
+                if target_met is not None
+                else "not-requested"
+            ),
+            "X-Actual-Quality": str(actual_quality),
         },
     )

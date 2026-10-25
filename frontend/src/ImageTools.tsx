@@ -22,6 +22,8 @@ function ImageTools() {
   const [file, setFile] = useState<File | null>(null);
   const [format, setFormat] = useState("JPEG");
   const [quality, setQuality] = useState(75);
+  const [useTargetSize, setUseTargetSize] = useState(false);
+  const [targetSizeKb, setTargetSizeKb] = useState(100);
   const [status, setStatus] = useState("");
   const [downloadUrl, setDownloadUrl] = useState("");
   const [downloadName, setDownloadName] = useState("");
@@ -103,12 +105,27 @@ function ImageTools() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-
+      const queryParams = new URLSearchParams({
+        output_format: format,
+        quality: String(quality),
+      });
+      if (useTargetSize) {
+        if (
+           !Number.isInteger(targetSizeKb) ||
+            targetSizeKb < 1 ||
+            targetSizeKb > 10240
+          ) {
+            throw new Error(
+                "Target size must be a whole number between 1 and 10,240 KB."
+            );
+          }
+          queryParams.set("target_size_kb", String(targetSizeKb));
+      }
       const response = await fetch(
-        `http://localhost:8000/image-tools/convert?output_format=${format}&quality=${quality}`,
+        `http://localhost:8000/image-tools/convert?${queryParams.toString()}`,
         {
-          method: "POST",
-          body: formData,
+            method: "POST",
+            body: formData,
         }
       );
 
@@ -139,9 +156,32 @@ function ImageTools() {
             ? `Output is ${formatFileSize(Math.abs(difference))} larger.`
             : "The output file is the same size.";
 
+           const targetMet = response.headers.get("X-Target-Met");
+      const actualQuality = response.headers.get("X-Actual-Quality");
+
+      let targetMessage = "";
+
+      if (useTargetSize) {
+        if (targetMet === "true") {
+          targetMessage =
+            ` Target reached! Your image is within ${targetSizeKb} KB.`;
+        } else if (targetMet === "false") {
+          targetMessage =
+            ` Target not reached. The image could not be compressed to ${targetSizeKb} KB.`;
+        } else {
+          targetMessage =
+            " The target-size result could not be confirmed.";
+        }
+
+        if (actualQuality !== null) {
+          targetMessage += ` Quality used: ${actualQuality}.`;
+        }
+      }
+
       setStatus(
-        `Conversion successful! Original: ${formatFileSize(file.size)}. Converted: ${formatFileSize(blob.size)}. ${resultMessage}`
+        `Conversion successful! Original: ${formatFileSize(file.size)}. Converted: ${formatFileSize(blob.size)}. ${resultMessage}${targetMessage}`
       );
+    
     } catch (error) {
       setStatus(
         error instanceof Error
@@ -241,6 +281,52 @@ function ImageTools() {
           </button>
         </div>
       )}
+      
+      <div style={{ margin: "20px 0" }}>
+        <label htmlFor="use-target-size">
+          <input
+            id="use-target-size"
+            type="checkbox"
+            checked={useTargetSize}
+            onChange={(event) => {
+              setUseTargetSize(event.target.checked);
+              clearDownload();
+              setStatus("");
+            }}
+            disabled={busy}
+          />
+          {" "}Compress to a target file size
+        </label>
+
+        {useTargetSize && (
+          <div style={{ marginTop: "12px" }}>
+            <label htmlFor="target-size-kb">
+              Target size (KB)
+            </label>
+            <br />
+
+            <input
+              id="target-size-kb"
+              type="number"
+              min="1"
+              max="10240"
+              value={targetSizeKb}
+              onChange={(event) => {
+                setTargetSizeKb(Number(event.target.value));
+                clearDownload();
+                setStatus("");
+              }}
+              disabled={busy}
+            />
+
+            <p>
+              Choose a maximum size between 1 KB and 10,240 KB.
+              The output may exceed this target if it cannot be reached.
+            </p>
+          </div>
+        )}
+      </div>
+
 
       <label htmlFor="output-format">Output format</label>
       <br />

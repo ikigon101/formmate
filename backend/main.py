@@ -4,9 +4,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from image_routes import router as image_router
+from pdf_routes import router as pdf_router
 
 app = FastAPI(title="FormMate API")
-
+app.include_router(pdf_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
